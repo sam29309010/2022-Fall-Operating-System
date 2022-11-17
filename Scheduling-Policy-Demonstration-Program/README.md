@@ -10,6 +10,7 @@ Scheduling Policy Demonstration Program
 
 The implementation of main thread could be divided into six steps:
 1. Parse program arguments
+
     Use `getopt` to parse the command line options and `strtok` to split & identify each thread's scheduling policy/priority.
     ```cpp
     thread_info_t thread_infos[MAXTHREAD];
@@ -52,7 +53,8 @@ The implementation of main thread could be divided into six steps:
     }
     ```
 2. Create <num_threads> worker threads
-    Use `pthread_barrier_init` to initialize a barrier to block the threads immediately after creation. Then, call pthread_create to create a given number of threads by default attributes.
+
+    Use `pthread_barrier_init` to initialize a barrier to block the threads immediately after creation. Then, call `pthread_create` to create a given number of threads by default attributes.
     ```cpp
     pthread_barrier_init(&barrier, NULL, num_thread + 1);
     for (int i = 0; i < num_thread; i++)
@@ -64,6 +66,7 @@ The implementation of main thread could be divided into six steps:
 
     
 3. Set CPU affinity
+
     Set the CPU affinity of the main thread to number zero and set the affinity of other threads to number zero, both by using `pthread_setaffinity_np`.
     ```cpp
     cpu_set_t cpuset_zero, cpuset_one;
@@ -79,6 +82,7 @@ The implementation of main thread could be divided into six steps:
 
     ```
 4. Set the attributes to each thread
+
     Set the scheduling policy and priority for each thread using `pthread_setschedparam`. Note the difference between function `pthread_setschedparam` and `pthread_attr_setschedparam`.
     ```cpp
     sched_param params[MAXTHREAD];
@@ -88,11 +92,13 @@ The implementation of main thread could be divided into six steps:
     }    
     ```
 5. Start all threads at once
+
     The created threads would be blocked first by the barrier. Restart all of them here since the attributes of each thread have already been modified.
     ```cpp
     pthread_barrier_wait(&barrier);
     ```
 6. Wait for all threads to finish
+
     Wait until all created thread finish executing `thread_func`
     ```cpp
     for (int i = 0; i < num_thread; i++)
@@ -101,11 +107,13 @@ The implementation of main thread could be divided into six steps:
 
 The implementation of thread function *thread_func* could be divided into two steps:
 1. Wait until all threads are ready
+
     Explicitly block the thread itself until all threads have been created and set.
     ```cpp
     pthread_barrier_wait(&barrier);
     ```
 2. Do the task
+
     Print out the required text and do busy-waiting three times for a given period.
     ```cpp
     clock_t volatile wake_clock = clock() + period_busy * CLOCKS_PER_SEC;
