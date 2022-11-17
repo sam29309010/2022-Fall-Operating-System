@@ -12,7 +12,7 @@ double period_busy;
 
 typedef struct {
     pthread_t thread_id;
-    int num_thread; // thread id to be printed out
+    int printed_thread_id; // thread id to be printed out
     int sched_policy;
     int sched_priority;
 } thread_info_t;
@@ -22,10 +22,8 @@ void *thread_func(void *arg);
 
 int main(int argc, char *argv[])
 {
-    thread_info_t thread_infos[MAXTHREAD];
-    // pthread_t thread_handles[MAXTHREAD];
-
     /* 1. Parse program arguments */
+    thread_info_t thread_infos[MAXTHREAD];
     int opt, i;
     char *token;
     while ((opt = getopt(argc, argv, "n:t:s:p:")) != -1)
@@ -64,35 +62,30 @@ int main(int argc, char *argv[])
         }
     }
 
-    pthread_attr_t attrs[MAXTHREAD];
-    sched_param params[MAXTHREAD];
-    for (int i = 0; i < num_thread; i++) {
-        /* 4. Set the attributes to each thread */
-        pthread_attr_init(&attrs[i]);
-        // pthread_attr_setschedpolicy(&attrs[i], thread_infos[i].sched_policy);
-        // params[i].sched_priority = (thread_infos[i].sched_priority >= 0) ? thread_infos[i].sched_priority : 0;
-        // pthread_attr_setschedparam(&attrs[i], &params[i]);
-    }
-
+    
     /* 2. Create <num_threads> worker threads */
     pthread_barrier_init(&barrier, NULL, num_thread + 1);
-    for (int i = 0; i < num_thread; i++)
+    for (int i = num_thread -1 ; i >= 0; i--) // for (int i = 0; i < num_thread; i++)
     {
-        thread_infos[i].num_thread = i;
-        pthread_create(&thread_infos[i].thread_id, &attrs[i], thread_func, (void *) &thread_infos[i].num_thread);
+        thread_infos[i].printed_thread_id = i;
+        pthread_create(&thread_infos[i].thread_id, NULL, thread_func, (void *) &thread_infos[i].printed_thread_id);
     }
 
     /* 3. Set CPU affinity */
-    // set host thread affine to core 0
-    cpu_set_t cpuset_zero;
-    pthread_t thread = pthread_self();
+    cpu_set_t cpuset_zero, cpuset_one;
     CPU_ZERO(&cpuset_zero);
     CPU_SET(0, &cpuset_zero);
-    pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset_zero);
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset_zero);
+    
+    CPU_ZERO(&cpuset_one);
+    CPU_SET(1, &cpuset_one);
+    for (int i = 0; i < num_thread; i++) {
+        pthread_setaffinity_np(thread_infos[i].thread_id, sizeof(cpu_set_t), &cpuset_one); 
+    }
 
+    sched_param params[MAXTHREAD];
     for (int i = 0; i < num_thread; i++) {
         /* 4. Set the attributes to each thread */
-        // pthread_attr_init(&attrs[i]);
         params[i].sched_priority = (thread_infos[i].sched_priority >= 0) ? thread_infos[i].sched_priority : 0;
         pthread_setschedparam(thread_infos[i].thread_id, thread_infos[i].sched_policy, &params[i]);        
     }
@@ -106,37 +99,15 @@ int main(int argc, char *argv[])
     
 }
 
-void *thread_func(void *arg)
+void *thread_func(void *printed_thread_id)
 {
-    cpu_set_t cpuset_one;
-    pthread_t thread = pthread_self();
-    CPU_ZERO(&cpuset_one);
-    CPU_SET(1, &cpuset_one);
-    pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset_one);
-
-    pthread_getaffinity_np(thread, sizeof(cpu_set_t), &cpuset_one);
-    // printf("Set returned by pthread_getaffinity_np() contained:\n");
-    // for (int j = 0; j < CPU_SETSIZE; j++)
-    //     if (CPU_ISSET(j, &cpuset_one))
-    //         printf("    CPU %d\n", j);
-
-
-    // DEBUG
-    // pthread_t tid = pthread_self();
-    // sched_param param;
-    // int priority;
-    // int policy;
-    // pthread_getschedparam(tid, &policy, &param);
-    // priority = param.sched_priority; 
-    // printf("Thread %d priority %d\n", *((int *) arg), priority);
-
     /* 1. Wait until all threads are ready */
     pthread_barrier_wait(&barrier);
 
-    clock_t volatile wake_clock = clock() + period_busy * CLOCKS_PER_SEC;
     /* 2. Do the task */ 
+    clock_t volatile wake_clock = clock() + period_busy * CLOCKS_PER_SEC;
     for (int i = 0; i < 3; i++) {
-        printf("Thread %d is running\n", *((int *) arg));
+        printf("Thread %d is running\n", *((int *) printed_thread_id));
         /* Busy for <time_wait> seconds */
         while (clock() < wake_clock);
         wake_clock += (clock_t) (period_busy * CLOCKS_PER_SEC);
