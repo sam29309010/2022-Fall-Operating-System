@@ -163,6 +163,7 @@ static ssize_t device_read(struct file *filp, char *buffer, size_t length, loff_
     // Memory
     if (mask & KFETCH_MEM)
     {
+        // incorrect: should multiply with PAGE_SIZE
         struct sysinfo info;
         si_meminfo(&info);
         read_logo_line();
